@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal/Noise — Steganography &amp; Crypto Workbench</title>
+<meta name="description" content="Browser-based steganography and crypto workbench: bit planes, LSB, GIF analysis, hash ID, decoders.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Style/style.css">
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <a class="brand" href="#start"><span class="logo">◢◤</span><span><b>sig</b>/noise</span></a>
+  <div class="nav-links"><a href="#start">Workbench</a><a href="#hash">Hash ID</a><a href="#decode">Decoder</a></div>
+  <span class="badge">● 100% client-side</span>
+</div></nav>
+
+<div class="shell">
+<aside class="side" id="side">
+  <div class="side-h">Image lab</div>
+  <button data-view="start" class="on"><i>⌂</i>Overview</button>
+  <button data-view="planes"><i>▦</i>Bit planes</button>
+  <button data-view="lsb"><i>≡</i>LSB extract</button>
+  <button data-view="deep"><i>⌕</i>Deep scan</button>
+  <button data-view="gif"><i>◈</i>GIF analysis</button>
+  <button data-view="files"><i>⎘</i>Embedded files</button>
+  <div class="side-h">Crypto</div>
+  <button data-view="hash"><i>#</i>Hash identify</button>
+  <button data-view="decode"><i>⇄</i>Decode &amp; cipher</button>
+</aside>
+
+<main class="main">
+
+<section class="view on" id="v-start">
+  <div class="hero">
+    <span class="eyebrow">Steganography · Forensics · CTF</span>
+    <h1>Find what's hidden<br>inside an image.</h1>
+    <p>Inspect bit planes, extract LSB payloads, parse GIF palettes, detect appended files and decode what comes out — all in your browser. Nothing is uploaded.</p>
+  </div>
+  <label class="drop" id="drop" for="fileInput">
+    <input type="file" id="fileInput" accept="image/*" hidden>
+    <div class="drop-ic">⇪</div>
+    <div class="drop-t">Drop an image here or <u>browse</u></div>
+    <div class="drop-s">PNG &amp; BMP give the most reliable pixel LSB results · GIF has dedicated analysis · JPEG needs DCT tools</div>
+  </label>
+  <div id="loaded" class="hidden">
+    <div class="chips"><span class="chip"><em>File</em><b id="fName">—</b></span><span class="chip"><em>Type</em><b id="fType">—</b></span><span class="chip"><em>Size</em><b id="fSize">—</b></span><span class="chip"><em>Dimensions</em><b id="fDim">—</b></span></div>
+    <div class="panel"><div class="ph">Preview</div><canvas id="origCanvas"></canvas></div>
+  </div>
+  <div class="ph" style="margin:28px 0 12px">Tools</div>
+  <div class="tiles">
+    <button class="tile" data-go="planes"><i>▦</i><b>Bit planes</b><span>View each bit of R/G/B/gray as an image.</span></button>
+    <button class="tile" data-go="lsb"><i>≡</i><b>LSB extract</b><span>Pull text from least-significant bits.</span></button>
+    <button class="tile" data-go="deep"><i>⌕</i><b>Deep scan</b><span>72 depth/channel combos, ranked.</span></button>
+    <button class="tile" data-go="gif"><i>◈</i><b>GIF analysis</b><span>Palette, indices, comments, trailer.</span></button>
+    <button class="tile" data-go="files"><i>⎘</i><b>Embedded files</b><span>Signatures &amp; appended data.</span></button>
+    <button class="tile" data-go="hash"><i>#</i><b>Hash identify</b><span>50+ formats with hashcat modes.</span></button>
+  </div>
+</section>
+
+<section class="view img" id="v-planes">
+  <header class="vh"><h2>Bit planes</h2><p>Each bit of a channel rendered separately. Hidden LSB data shows up as noise or patterns in low bits; shapes in higher bits. Click a plane to zoom.</p></header>
+  <div class="empty noimg">Load an image from <a href="#start">Overview</a> first.</div>
+  <div class="content"><div class="panel">
+    <div class="tools"><label>Channel</label><select id="channelSel"><option value="R">Red</option><option value="G">Green</option><option value="B">Blue</option><option value="GRAY">Grayscale</option></select><button class="btn" id="renderBtn">Render bit planes</button></div>
+    <div class="grid" id="planeGrid"></div>
+    <div id="zoomWrap" class="hidden"><div class="ph" style="margin-top:16px">Zoomed</div><canvas id="zoomCanvas"></canvas></div>
+  </div></div>
+</section>
+
+<section class="view img" id="v-lsb">
+  <header class="vh"><h2>LSB extraction</h2><p>Read the lowest bit of chosen channels and interpret as bytes. Non-printable bytes show as dots.</p></header>
+  <div class="empty noimg">Load an image from <a href="#start">Overview</a> first.</div>
+  <div class="content"><div class="panel">
+    <div class="tools"><label>Channels</label><select id="lsbChannels"><option value="R">Red</option><option value="G">Green</option><option value="B">Blue</option><option value="RGB">R,G,B interleaved</option></select><button class="btn" id="lsbBtn">Extract</button><button class="btn ghost" id="sendToDecoder">Send to decoder →</button></div>
+    <textarea id="lsbOut" readonly placeholder="Decoded bytes appear here..."></textarea>
+  </div></div>
+</section>
+
+<section class="view img" id="v-deep">
+  <header class="vh"><h2>Deep LSB scan</h2><p>Tries bit depths 1–8 across nine channel orders and ranks by readability. Flag-shaped matches (<code>word{...}</code>) are highlighted.</p></header>
+  <div class="empty noimg">Load an image from <a href="#start">Overview</a> first.</div>
+  <div class="content"><div class="panel">
+    <div class="tools"><button class="btn" id="deepScanBtn">Run deep scan</button><span class="hint" id="deepScanStatus"></span></div>
+    <div id="deepScanResults" class="scroll"></div>
+  </div></div>
+</section>
+
+<section class="view img" id="v-gif">
+  <header class="vh"><h2>GIF analysis</h2><p>Parses structure, palette LSBs, palette-index LSBs (frame 1, via LZW), comments, application extensions and data after the trailer.</p></header>
+  <div class="empty noimg">Load an image from <a href="#start">Overview</a> first.</div>
+  <div class="empty nogif">The loaded file isn't a GIF. Load a <b>.gif</b> to use this tool.</div>
+  <div class="content gifc"><div class="panel">
+    <div class="tools"><button class="btn" id="gifBtn">Analyze GIF</button></div>
+    <div class="res" id="gifOut"></div>
+  </div></div>
+</section>
+
+<section class="view img" id="v-files">
+  <header class="vh"><h2>Embedded file detection</h2><p>Scans raw bytes for file signatures and trailing data after the image end marker — like a mini binwalk.</p></header>
+  <div class="empty noimg">Load an image from <a href="#start">Overview</a> first.</div>
+  <div class="content"><div class="panel"><div class="res" id="fileScanResults"></div></div></div>
+</section>
+
+<section class="view" id="v-hash">
+  <header class="vh"><h2>Hash identification</h2><p>Paste a hash, <code>hash:salt</code> or <code>LM:NT</code>. Returns likely types with hashcat modes and John formats. Identification only — no cracking.</p></header>
+  <div class="panel">
+    <textarea id="hashInput" style="min-height:56px" placeholder="5f4dcc3b5aa765d61d8327deb882cf99"></textarea>
+    <div class="tools"><button class="btn" id="hashIdBtn">Identify</button></div>
+    <div class="res" id="hashIdResult"></div>
+  </div>
+</section>
+
+<section class="view" id="v-decode">
+  <header class="vh"><h2>Decode &amp; cipher workbench</h2><p>Base64/32, hex, binary, URL, ROT13/47, Atbash, Morse, reverse, Caesar and single-byte XOR — tried all at once.</p></header>
+  <div class="panel">
+    <textarea id="decodeInput" placeholder="Paste text here..."></textarea>
+    <div class="tools"><button class="btn" id="decodeBtn">Try all decodings</button></div>
+    <div id="decodeResults" class="res"></div>
+  </div>
+</section>
+
+</main></div>
+
+<footer class="foot"><div class="foot-in">
+  <div><div class="brand"><span class="logo">◢◤</span><span><b>sig</b>/noise</span></div><p>A privacy-first bench for stego and crypto challenges. Runs entirely in your browser.</p></div>
+  <div><h4>Tools</h4><a href="#planes">Bit planes</a><a href="#deep">Deep scan</a><a href="#gif">GIF analysis</a></div>
+  <div><h4>Crypto</h4><a href="#hash">Hash identify</a><a href="#decode">Decoder</a></div>
+</div><div class="foot-b">© 2026 sig/noise · No uploads · No tracking</div></footer>
+
+<script src="js/utils.js"></script>
+<script src="js/hashid.js"></script>
+<script src="js/gif.js"></script>
+<script src="js/filescan.js"></script>
+<script src="js/decoders.js"></script>
+<script src="js/main.js"></script>
+</body></html>
